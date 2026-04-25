@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventory Management System</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 250px;
+            background:rgb(128, 0, 0);
+            color: white;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .sidebar ul li:hover {
+            background: rgb(0, 0, 0);
+        }
+
+        .sidebar ul li.active {
+            background: rgb(64, 0, 0);
+        }
+
+        .logout {
+            margin-top: 30px;
+            background: #c0392b;
+            text-align: center;
+        }
+
+        .logout:hover {
+            background: #e74c3c;
+        }
+
+        /* MAIN */
+        .main {
+            flex: 1;
+            background: #f4f6f9;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        /* CARD */
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0px 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* FORM */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-control, select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        /* TABLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: rgb(64, 0, 0);
+            color: white;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* STATUS BADGE */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+        }
+
+        .badge-active {
+            background: #4CAF50;
+        }
+
+        .badge-returned {
+            background: #999;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            margin: 10% auto;
+            width: 400px;
+            border-radius: 10px;
+        }
+
+        /* LOADING */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        /* ERROR */
+        .error {
+            background: #ffe6e6;
+            color: #c0392b;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>AIRTEL IMS</h2>
+        <ul>
+            <li onclick="navigate(this, 'dashboard')">Dashboard</li>
+            <li onclick="navigate(this, 'assets')">Assets</li>
+            <li onclick="navigate(this, 'assignments')">Assignments</li>
+            <li onclick="navigate(this, 'audit')">Audit Logs</li>
+            <li onclick="logout()" class="logout">Logout</li>
+        </ul>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div id="content"></div>
+    </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="assetModal">
+    <div class="modal-content">
+        <h3>Asset Form</h3>
+        <input type="hidden" id="assetId">
+        <input type="text" id="assetCode" placeholder="Asset Code">
+        <input type="text" id="brand" placeholder="Brand">
+        <input type="text" id="model" placeholder="Model">
+        <button class="btn btn-primary" onclick="saveAsset()">Save</button>
+        <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>
+</div>
+
+<script>
+// ==================== API ENDPOINTS ====================
+const API_ASSETS = "http://localhost:8080/api/assets";
+const API_USERS = "http://localhost:8080/api/users";
+const API_ASSIGNMENTS = "http://localhost:8080/api/assignments";
+const API_AUDIT = "http://localhost:8080/api/audit";
+
+// ==================== NAVIGATION ====================
+function navigate(el, page) {
+    document.querySelectorAll(".sidebar li").forEach(li => li.classList.remove("active"));
+    el.classList.add("active");
+
+    if (page === "dashboard") loadDashboard();
+    if (page === "assets") loadAssetsPage();
+    if (page === "assignments") loadAssignmentsPage();
+    if (page === "audit") loadAuditLogs();
+}
+
+// ==================== DASHBOARD ====================
+function loadDashboard() {
+    fetch(API_ASSETS)
+        .then(res => res.json())
+        .then(data => {
+            let available = data.filter(a => a.status === "AVAILABLE").length;
+
+            document.getElementById("content").innerHTML = `
+                <div class="card">
+                    <h2>Inventory Dashboard</h2>
+                </div>
+                <div class="cards">
+                    <div class="card">
+                        <h3>Total Assets</h3>
+                        <p style="font-size: 32px; font-weight: bold;">${data.length}</p>
+                    </div>
+                    <div class="card">
+                        <h3>Available Assets</h3>
+                        <p style="font-size: 32px; font-weight: bold; color: #4CAF50;">${available}</p>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            document.getElementById("content").innerHTML = `<div class="error">❌ Error loading dashboard: ${error.message}</div>`;
+        });
+}
+
+// ==================== ASSETS PAGE ====================
+function loadAssetsPage() {
+    document.getElementById("content").innerHTML = `
+        <div class="card">
+            <h2>Asset Management</h2>
+            <button class="btn btn-primary" onclick="openModal()">+ Add New Asset</button>
+        </div>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Asset Code</th>
+                        <th>Brand</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="assetTable"></tbody>
+            </table>
+        </div>
+    `;
+    loadAssets();
+}
+
+function loadAssets() {
+    fetch(API_ASSETS)
+        .then(res => res.json())
+        .then(data => {
+            let table = document.getElementById("assetTable");
+            if (!table) return;
+            table.innerHTML = "";
+
+            data.forEach(a => {
+                table.innerHTML += `
+                    <tr>
+                        <td>${a.assetId}</td>
+                        <td>${a.assetCode}</td>
+                        <td>${a.brand || '-'}</td>
+                        <td>${a.model || '-'}</td>
+                        <td><span class="badge ${a.status === 'AVAILABLE' ? 'badge-active' : ''}">${a.status}</span></td>
+                        <td>
+                            <button class="btn btn-primary" onclick="editAsset(${a.assetId})">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteAsset(${a.assetId})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+}
+
+
+// ==================== ASSIGNMENTS PAGE (FIXED - USERS DROPDOWN) ====================
+function loadAssignmentsPage() {
+    document.getElementById("content").innerHTML = `<div class="loading">Loading assignments...</div>`;
+
+    Promise.all([
+        fetch(API_ASSETS).then(res => res.json()),
+        fetch(API_USERS).then(res => res.json()),
+        fetch(API_ASSIGNMENTS).then(res => res.json())
+    ])
+    .then(([assets, users, assignments]) => {
+        // Debug: Log users to console
+        console.log("Loaded users:", users);
+        console.log("Loaded assets:", assets);
+        console.log("Loaded assignments:", assignments);
+        
+        // Filter available assets (not assigned)
+        let availableAssets = assets.filter(a => a.status === "AVAILABLE");
+        
+        // Build asset dropdown
+        let assetOptions = availableAssets.length > 0 
+            ? availableAssets.map(a => `<option value="${a.assetId}">${a.assetCode} (${a.brand || 'No brand'})</option>`).join("")
+            : `<option value="" disabled>No available assets</option>`;
+
+        // Build user dropdown - FIXED: Check different possible field names
+        let userOptions = "";
+        if (users.length > 0) {
+            userOptions = users.map(u => {
+                // Handle different possible field names from your backend
+                let userId = u.userId || u.id;
+                let userName = u.fullName || u.fullname || u.name || u.username || "Unknown User";
+                let userEmail = u.email || "";
+                return `<option value="${userId}">${userName}</option>`;
+            }).join("");
+        } else {
+            userOptions = `<option value="" disabled>No users found - Add users to database</option>`;
+        }
+
+        let html = `
+            <!-- Assignment Form -->
+            <div class="card">
+                <h2>Assign Asset to User</h2>
+                
+                <div class="form-group">
+                    <label>Select Asset:</label>
+                    <select id="assetSelect" class="form-control">
+                        ${assetOptions}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Select User:</label>
+                    <select id="userSelect" class="form-control">
+                        ${userOptions}
+                    </select>
+                </div>
+
+                <button class="btn btn-primary" onclick="assignAsset()" ${availableAssets.length === 0 || users.length === 0 ? 'disabled' : ''}>
+                     Assign Asset
+                </button>
+                ${availableAssets.length === 0 ? '<p style="color: red; margin-top: 10px;">⚠️ No available assets to assign</p>' : ''}
+                ${users.length === 0 ? '<p style="color: red; margin-top: 10px;">⚠️ No users found. Please add users to database.</p>' : ''}
+            </div>
+
+            <!-- Current Assignments Table -->
+            <div class="card">
+                <h2>Current Assignments</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Assignment ID</th>
+                                <th>Asset Code</th>
+                                <th>Asset Brand</th>
+                                <th>Assigned To</th>
+                                <th>Assigned Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        if (assignments.length === 0) {
+            html += `<tr><td colspan="7" style="text-align: center;">No assignments found</td></tr>`;
+        } else {
+            assignments.forEach(a => {
+                html += `
+                    <tr>
+                        <td>${a.assignmentId || a.id || 'N/A'}</td>
+                        <td>${a.asset?.assetCode || a.assetCode || 'N/A'}</td>
+                        <td>${a.asset?.brand || a.brand || 'N/A'}</td>
+                        <td>${a.user?.fullName || a.fullName || a.user?.name || a.user?.username || 'N/A'}</td>
+                        <td>${a.assignedDate ? new Date(a.assignedDate).toLocaleDateString() : 'N/A'}</td>
+                        <td>
+                            <span class="badge ${a.status === 'ACTIVE' ? 'badge-active' : 'badge-returned'}">
+                                ${a.status || 'ACTIVE'}
+                            </span>
+                        </td>
+                        <td>
+                            ${a.status === 'ACTIVE' 
+                                ? `<button class="btn btn-danger" onclick="returnAsset(${a.asset?.assetId || a.assetId})">Return</button>` 
+                                : '<span style="color: #888;">Returned</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("content").innerHTML = html;
+    })
+    .catch(error => {
+        console.error("Error loading assignments:", error);
+        document.getElementById("content").innerHTML = `
+            <div class="card">
+                <h2>❌ Error</h2>
+                <div class="error">
+                    <p>Failed to load assignments page.</p>
+                    <p>Details: ${error.message}</p>
+                    <button class="btn btn-primary" onclick="loadAssignmentsPage()">Retry</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// ==================== ASSIGN ASSET (FIXED) ====================
+function assignAsset() {
+    let assetSelect = document.getElementById("assetSelect");
+    let userSelect = document.getElementById("userSelect");
+    
+    if (!assetSelect || !userSelect) {
+        alert("Please refresh the page and try again");
+        return;
+    }
+    
+    let assetId = assetSelect.value;
+    let userId = userSelect.value;
+    
+    if (!assetId || !userId) {
+        alert("Please select both an asset and a user");
+        return;
+    }
+    
+    // Disable button to prevent double submission
+    let assignBtn = event.target;
+    let originalText = assignBtn.innerText;
+    assignBtn.disabled = true;
+    assignBtn.innerText = "Assigning...";
+    
+    // ✅ Use query parameters (matches your @RequestParam)
+    const url = `${API_ASSIGNMENTS}?assetId=${assetId}&userId=${userId}`;
+    
+    console.log("Sending assignment request to:", url);
+    
+    fetch(url, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json"
+        }
+        // ✅ NO BODY - using query parameters instead
+    })
+    .then(res => {
+        console.log("Response status:", res.status);
+        if (!res.ok) {
+            return res.text().then(text => {
+                console.error("Server response:", text);
+                throw new Error(text || "Assignment failed");
+            });
+        }
+        return res.json();
+    })
+    .then(data => {
+        console.log("Assignment success:", data);
+        alert("Asset assigned successfully!");
+        loadAssignmentsPage(); // Refresh the page
+    })
+    .catch(error => {
+        console.error("Assignment error:", error);
+        alert("Assignment failed: " + error.message);
+        assignBtn.disabled = false;
+        assignBtn.innerText = originalText;
+    });
+}
+
+// RETURN ASSET
+function returnAsset(assetId) {
+    if (!assetId) {
+        alert("Invalid asset ID");
+        return;
+    }
+    
+    if (!confirm("Are you sure you want to return this asset?")) {
+        return;
+    }
+    
+    fetch(`${API_ASSIGNMENTS}/return/${assetId}`, { 
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.text().then(text => { throw new Error(text || "Return failed"); });
+        }
+        return res.json();
+    })
+    .then(() => {
+        alert("Asset returned successfully!");
+        loadAssignmentsPage();
+    })
+    .catch(error => {
+        console.error("Return error:", error);
+        alert("❌ Return failed: " + error.message);
+    });
+}
+
+// ==================== AUDIT LOGS ====================
+function loadAuditLogs() {
+    fetch(API_AUDIT)
+        .then(res => res.json())
+        .then(data => {
+            let html = `
+                <div class="card">
+                    <h2>Audit Logs</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>Performed By</th>
+                                <th>Description</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (data.length === 0) {
+                html += `<tr><td colspan="5" style="text-align: center;">No audit logs found</td></tr>`;
+            } else {
+                data.forEach(log => {
+                    html += `
+                        <tr>
+                            <td>${log.action || '-'}</td>
+                            <td>${log.entity || '-'}</td>
+                            <td>${log.performedBy || '-'}</td>
+                            <td>${log.description || '-'}</td>
+                            <td>${log.timestamp ? new Date(log.timestamp).toLocaleString() : '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById("content").innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById("content").innerHTML = `<div class="error">❌ Error loading audit logs: ${error.message}</div>`;
+        });
+}
+
+// ==================== MODAL FUNCTIONS ====================
+function openModal() {
+    document.getElementById("assetModal").style.display = "block";
+}
+
+function closeModal() {
+    document.getElementById("assetModal").style.display = "none";
+    clearForm();
+}
+
+function saveAsset() {
+    let id = document.getElementById("assetId").value;
+    let asset = {
+        assetCode: document.getElementById("assetCode").value,
+        brand: document.getElementById("brand").value,
+        model: document.getElementById("model").value
+    };
+
+    let method = id ? "PUT" : "POST";
+    let url = id ? API_ASSETS + "/" + id : API_ASSETS;
+
+    fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(asset)
+    }).then(() => {
+        closeModal();
+        loadAssetsPage();
+    });
+}
+
+function editAsset(id) {
+    fetch(API_ASSETS + "/" + id)
+        .then(res => res.json())
+        .then(a => {
+            openModal();
+            document.getElementById("assetId").value = a.assetId;
+            document.getElementById("assetCode").value = a.assetCode;
+            document.getElementById("brand").value = a.brand;
+            document.getElementById("model").value = a.model;
+        });
+}
+
+function deleteAsset(id) {
+    if (confirm("Delete this asset?")) {
+        fetch(API_ASSETS + "/" + id, { method: "DELETE" })
+            .then(() => loadAssetsPage());
+    }
+}
+
+function clearForm() {
+    document.getElementById("assetId").value = "";
+    document.getElementById("assetCode").value = "";
+    document.getElementById("brand").value = "";
+    document.getElementById("model").value = "";
+}
+
+// ==================== AUTH & LOGOUT ====================
+function logout() {
+    localStorage.removeItem("user");
+    window.location.href = "login.html";
+}
+
+// Protect page - redirect to login if not authenticated
+if (!localStorage.getItem("user")) {
+    window.location.href = "login.html";
+}
+
+// ==================== INIT ====================
+loadDashboard();
+
+</script>
+
+</body>
+</html>
