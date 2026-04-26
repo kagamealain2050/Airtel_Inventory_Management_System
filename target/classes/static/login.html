@@ -8,7 +8,7 @@
         body {
             margin: 0;
             font-family: sans-serif;
-            background:rgb(128, 0, 0);
+            background: rgb(128, 0, 0);
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -39,7 +39,7 @@
         .login-box button {
             width: 100%;
             padding: 10px;
-            background:rgb(128, 0, 0);
+            background: rgb(128, 0, 0);
             color: white;
             border: none;
             border-radius: 5px;
@@ -47,7 +47,7 @@
         }
 
         .login-box button:hover {
-            background:black;
+            background: black;
         }
 
         .error {
@@ -62,10 +62,12 @@
 
 <div class="login-box">
     <h2>Airtel IMS Login</h2>
-    <label><b>Username [24rp02639]:</b></label>
-    <input type="text" id="email" placeholder="Username">
-    <label><b>Password [24rp09144]:</b></label>
-    <input type="password" id="password" placeholder="Password">
+
+    <label><b>Username:</b></label>
+    <input type="text" id="email" value="24rp02639">
+
+    <label><b>Password:</b></label>
+    <input type="password" id="password" value="24rp09144">
 
     <button onclick="login()">Login</button>
 
@@ -73,12 +75,19 @@
 </div>
 
 <script>
+
+// AUTO-REDIRECT IF ALREADY LOGGED IN
+if (localStorage.getItem("user")) {
+    window.location.href = "index.html";
+}
+
+// LOGIN FUNCTION
 function login() {
 
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
 
-    fetch("http://localhost:8080/api/auth/login", {
+    fetch("http://localhost:8083/api/auth/login", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -93,16 +102,14 @@ function login() {
         return res.json();
     })
     .then(data => {
-        // Save user session
         localStorage.setItem("user", JSON.stringify(data));
-
-        // Redirect to dashboard
         window.location.href = "index.html";
     })
     .catch(err => {
         document.getElementById("error").innerText = err.message;
     });
 }
+
 </script>
 
 </body>
